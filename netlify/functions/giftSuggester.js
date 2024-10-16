@@ -35,8 +35,15 @@ exports.handler = async (event) => {
     const data = await response.json();
     console.log('Raw API response:', JSON.stringify(data));
 
-    const generatedText = data[0].generated_text;
+    let generatedText = '';
+    if (Array.isArray(data) && data.length > 0) {
+      generatedText = data[0].summary_text || data[0].generated_text || '';
+    }
     console.log('Generated text:', generatedText);
+
+    if (!generatedText) {
+      throw new Error('No gift ideas generated. Please try again.');
+    }
 
     const giftIdeas = parseGiftIdeas(generatedText);
 
@@ -58,7 +65,12 @@ exports.handler = async (event) => {
 function parseGiftIdeas(text) {
   const lines = text.split('\n').filter(line => line.trim() !== '');
   return lines.map(line => {
-    const [product, description, price, retailer] = line.split(' - ');
-    return { product, description, price, retailer };
+    const parts = line.split(' - ');
+    return {
+      product: parts[0] || 'Unknown Product',
+      description: parts[1] || 'No description available',
+      price: parts[2] || 'Price not specified',
+      retailer: parts[3] || 'Retailer not specified'
+    };
   });
 }
