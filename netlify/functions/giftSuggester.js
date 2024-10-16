@@ -17,9 +17,9 @@ exports.handler = async (event) => {
       throw new Error('Budget and age are required fields');
     }
 
-    const prompt = `Suggest 5 specific gift ideas for a ${age} year old, interested in ${interests || 'various things'}, for the occasion: ${occasion || 'general gifting'}. The budget is $${budget}. For each suggestion, provide the product name, a brief description, an estimated price, and a popular retailer where it can be purchased.`;
+    const prompt = `Suggest 5 specific gift ideas for a ${age} year old, interested in ${interests}, for the occasion: ${occasion}. The budget is $${budget}. For each suggestion, provide the product name, a brief description, an estimated price, and a popular retailer where it can be purchased. Format the response as a list of 5 items, each on a new line, with the format: Product Name - Description - Price - Retailer`;
 
-    const response = await fetch('https://api-inference.huggingface.co/models/gpt2', {
+    const response = await fetch('https://api-inference.huggingface.co/models/facebook/bart-large-cnn', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
@@ -33,13 +33,11 @@ exports.handler = async (event) => {
     }
 
     const data = await response.json();
-    
     console.log('Raw API response:', JSON.stringify(data));
 
-    const generatedText = data[0].generated_text.trim();
+    const generatedText = data[0].generated_text;
     console.log('Generated text:', generatedText);
 
-    // Custom parsing logic
     const giftIdeas = parseGiftIdeas(generatedText);
 
     return {
@@ -58,39 +56,9 @@ exports.handler = async (event) => {
 };
 
 function parseGiftIdeas(text) {
-  const ideas = [];
-  const lines = text.split('\n');
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (line.match(/^\d+\./)) {  // Look for lines starting with a number and period
-      const idea = {
-        product: line.split('.')[1].trim(),
-        description: '',
-        price: 'N/A',
-        retailer: 'N/A'
-      };
-      
-      // Look for description, price, and retailer in the next few lines
-      for (let j = i + 1; j < i + 4 && j < lines.length; j++) {
-        const subline = lines[j].trim();
-        if (subline.includes('$')) {
-          idea.price = subline.match(/\$\d+(\.\d{2})?/)[0];
-        }
-        if (subline.includes('at') || subline.includes('from')) {
-          idea.retailer = subline.split(/at|from/).pop().trim();
-        }
-        if (!subline.includes('$') && !subline.includes('at') && !subline.includes('from')) {
-          idea.description += ' ' + subline;
-        }
-      }
-      
-      idea.description = idea.description.trim();
-      ideas.push(idea);
-      
-      if (ideas.length === 5) break;  // Stop after finding 5 ideas
-    }
-  }
-  
-  return ideas;
+  const lines = text.split('\n').filter(line => line.trim() !== '');
+  return lines.map(line => {
+    const [product, description, price, retailer] = line.split(' - ');
+    return { product, description, price, retailer };
+  });
 }
