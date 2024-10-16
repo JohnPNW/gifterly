@@ -17,7 +17,7 @@ exports.handler = async (event) => {
       throw new Error('Budget and age are required fields');
     }
 
-    const prompt = `Suggest 5 specific gift ideas for a ${age} year old, interested in ${interests || 'various things'}, for the occasion: ${occasion || 'general gifting'}. The budget is $${budget}. For each suggestion, provide the product name, a brief description, an estimated price, and a popular retailer where it can be purchased. Format the response as a JSON array of objects, each with 'product', 'description', 'price', and 'retailer' keys.`;
+    const prompt = `Suggest 5 specific gift ideas for a ${age} year old, interested in ${interests || 'various things'}, for the occasion: ${occasion || 'general gifting'}. The budget is $${budget}. For each suggestion, provide the product name, a brief description, an estimated price, and a popular retailer where it can be purchased.`;
 
     const response = await fetch('https://api-inference.huggingface.co/models/gpt2', {
       method: 'POST',
@@ -34,21 +34,13 @@ exports.handler = async (event) => {
 
     const data = await response.json();
     
-    // Log the raw response for debugging
     console.log('Raw API response:', JSON.stringify(data));
 
-    // Parse the generated text as JSON
-    const giftIdeasText = data[0].generated_text.trim();
-    console.log('Generated text:', giftIdeasText);
+    const generatedText = data[0].generated_text.trim();
+    console.log('Generated text:', generatedText);
 
-    let giftIdeas;
-    try {
-      giftIdeas = JSON.parse(giftIdeasText);
-    } catch (parseError) {
-      console.error('Failed to parse gift ideas:', parseError);
-      // If parsing fails, return the raw text
-      giftIdeas = [{ product: 'Parsing Error', description: giftIdeasText, price: 'N/A', retailer: 'N/A' }];
-    }
+    // Custom parsing logic
+    const giftIdeas = parseGiftIdeas(generatedText);
 
     return {
       statusCode: 200,
@@ -64,3 +56,41 @@ exports.handler = async (event) => {
     };
   }
 };
+
+function parseGiftIdeas(text) {
+  const ideas = [];
+  const lines = text.split('\n');
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.match(/^\d+\./)) {  // Look for lines starting with a number and period
+      const idea = {
+        product: line.split('.')[1].trim(),
+        description: '',
+        price: 'N/A',
+        retailer: 'N/A'
+      };
+      
+      // Look for description, price, and retailer in the next few lines
+      for (let j = i + 1; j < i + 4 && j < lines.length; j++) {
+        const subline = lines[j].trim();
+        if (subline.includes('$')) {
+          idea.price = subline.match(/\$\d+(\.\d{2})?/)[0];
+        }
+        if (subline.includes('at') || subline.includes('from')) {
+          idea.retailer = subline.split(/at|from/).pop().trim();
+        }
+        if (!subline.includes('$') && !subline.includes('at') && !subline.includes('from')) {
+          idea.description += ' ' + subline;
+        }
+      }
+      
+      idea.description = idea.description.trim();
+      ideas.push(idea);
+      
+      if (ideas.length === 5) break;  // Stop after finding 5 ideas
+    }
+  }
+  
+  return ideas;
+}
