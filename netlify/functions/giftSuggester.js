@@ -28,11 +28,27 @@ exports.handler = async (event) => {
       body: JSON.stringify({ inputs: prompt }),
     });
 
+    if (!response.ok) {
+      throw new Error(`Hugging Face API responded with status ${response.status}`);
+    }
+
     const data = await response.json();
     
+    // Log the raw response for debugging
+    console.log('Raw API response:', JSON.stringify(data));
+
     // Parse the generated text as JSON
     const giftIdeasText = data[0].generated_text.trim();
-    const giftIdeas = JSON.parse(giftIdeasText);
+    console.log('Generated text:', giftIdeasText);
+
+    let giftIdeas;
+    try {
+      giftIdeas = JSON.parse(giftIdeasText);
+    } catch (parseError) {
+      console.error('Failed to parse gift ideas:', parseError);
+      // If parsing fails, return the raw text
+      giftIdeas = [{ product: 'Parsing Error', description: giftIdeasText, price: 'N/A', retailer: 'N/A' }];
+    }
 
     return {
       statusCode: 200,
