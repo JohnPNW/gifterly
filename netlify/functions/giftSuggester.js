@@ -17,8 +17,7 @@ exports.handler = async (event) => {
       throw new Error('Budget and age are required fields');
     }
 
-    const retailers = ['Amazon', 'Target', 'Walmart', 'Best Buy', 'Bass Pro Shop', 'Steam Games'];
-    const prompt = `Suggest one gift idea for each of the following retailers: ${retailers.join(', ')}. The gift is for a ${age} year old, interested in ${interests || 'various things'}, for the occasion: ${occasion || 'general gifting'}. The budget is $${budget}. Format the response as a JSON object with retailer names as keys and gift ideas as values.`;
+    const prompt = `Suggest 5 specific gift ideas for a ${age} year old, interested in ${interests || 'various things'}, for the occasion: ${occasion || 'general gifting'}. The budget is $${budget}. For each suggestion, provide the product name, a brief description, an estimated price, and a popular retailer where it can be purchased. Format the response as a JSON array of objects, each with 'product', 'description', 'price', and 'retailer' keys.`;
 
     const response = await fetch('https://api-inference.huggingface.co/models/gpt2', {
       method: 'POST',
