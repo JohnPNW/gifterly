@@ -1,2 +1,6 @@
 exports.handler = async (event) =
-  // Your function code here
+  return { 
+    statusCode: 200, 
+    body: JSON.stringify({ message: "Hello from the gift suggester function!" }), 
+  }; 
+}; 
