@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Gifterly",
+  "version": "1.0",
+  "description": "AI-powered gift suggestion tool",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "activeTab"
+  ]
+}

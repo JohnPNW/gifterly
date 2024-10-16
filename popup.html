@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gifterly</title>
+    <style>
+        body {
+            width: 300px;
+            padding: 10px;
+            font-family: Arial, sans-serif;
+        }
+        input, button {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Gifterly Gift Survey</h2>
+    <form id="giftSurvey">
+        <input type="number" id="budget" placeholder="Gift Budget (required)" required>
+        <input type="text" id="occasion" placeholder="Gift Occasion/Reason">
+        <input type="number" id="age" placeholder="Recipient Age (required)" required>
+        <input type="text" id="interests" placeholder="Recipient Interests/Hobbies">
+        <button type="submit">Get Gift Ideas</button>
+    </form>
+    <div id="results"></div>
+    <script src="popup.js"></script>
+</body>
+</html>
