@@ -17,7 +17,7 @@ exports.handler = async (event) => {
       throw new Error('Budget and age are required fields');
     }
 
-    const prompt = `Suggest 5 specific gift ideas for a ${age} year old, interested in ${interests}, for the occasion: ${occasion}. The budget is $${budget}. It's crucial that each suggestion stays within this budget. For each suggestion, provide the product name, a brief description, an estimated price (which must be less than or equal to $${budget}), and a popular retailer where it can be purchased.`;
+    const prompt = `Suggest 5 specific gift ideas for a ${age} year old${interests ? ', interested in ' + interests : ''}, for the occasion: ${occasion || 'any occasion'}. The budget is $${budget}. Each suggestion must stay within this budget. For each suggestion, provide the product name, a brief description, an estimated price (which must be less than or equal to $${budget}), and a popular retailer where it can be purchased. Format your response as a JSON array of objects, each with 'product', 'description', 'price', and 'retailer' keys.`;
 
     const response = await fetch('https://api.cohere.ai/v1/generate', {
       method: 'POST',
@@ -44,7 +44,13 @@ exports.handler = async (event) => {
     const data = await response.json();
     const generatedText = data.generations[0].text.trim();
 
-    const giftIdeas = parseGiftIdeas(generatedText);
+    let giftIdeas;
+    try {
+      giftIdeas = JSON.parse(generatedText);
+    } catch (error) {
+      console.error('Failed to parse gift ideas:', error);
+      giftIdeas = parseGiftIdeas(generatedText);
+    }
 
     return {
       statusCode: 200,
@@ -63,27 +69,16 @@ exports.handler = async (event) => {
 
 function parseGiftIdeas(text) {
   const giftIdeas = [];
-  const lines = text.split('\n');
-  let currentIdea = {};
+  const regex = /Product: (.*?)\nDescription: (.*?)\nPrice: (.*?)\nRetailer: (.*?)(?:\n|$)/gs;
+  let match;
 
-  for (const line of lines) {
-    if (line.startsWith('Product:')) {
-      if (Object.keys(currentIdea).length > 0) {
-        giftIdeas.push(currentIdea);
-        currentIdea = {};
-      }
-      currentIdea.product = line.replace('Product:', '').trim();
-    } else if (line.startsWith('Description:')) {
-      currentIdea.description = line.replace('Description:', '').trim();
-    } else if (line.startsWith('Price:')) {
-      currentIdea.price = line.replace('Price:', '').trim();
-    } else if (line.startsWith('Retailer:')) {
-      currentIdea.retailer = line.replace('Retailer:', '').trim();
-    }
-  }
-
-  if (Object.keys(currentIdea).length > 0) {
-    giftIdeas.push(currentIdea);
+  while ((match = regex.exec(text)) !== null) {
+    giftIdeas.push({
+      product: match[1].trim(),
+      description: match[2].trim(),
+      price: match[3].trim(),
+      retailer: match[4].trim()
+    });
   }
 
   return giftIdeas.length > 0 ? giftIdeas : [{ product: 'Parsing Error', description: text, price: 'N/A', retailer: 'N/A' }];
