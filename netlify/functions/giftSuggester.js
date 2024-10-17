@@ -17,7 +17,7 @@ exports.handler = async (event) => {
       throw new Error('Budget and age are required fields');
     }
 
-    const prompt = `Suggest 5 specific gift ideas for a ${age} year old, interested in ${interests}, for the occasion: ${occasion}. The budget is $${budget}. For each suggestion, provide the product name, a brief description, an estimated price, and a popular retailer where it can be purchased. Format each gift idea as: "Product Name - Description - Price - Retailer".`;
+    const prompt = `Suggest 5 specific gift ideas for a ${age} year old, interested in ${interests}, for the occasion: ${occasion}. The budget is $${budget}. It's crucial that each suggestion stays within this budget. For each suggestion, provide the product name, a brief description, an estimated price (which must be less than or equal to $${budget}), and a popular retailer where it can be purchased. Format the response as a JSON array of objects, each with 'product', 'description', 'price', and 'retailer' keys.`;
 
     const response = await fetch('https://api.cohere.ai/v1/generate', {
       method: 'POST',
@@ -29,7 +29,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         model: 'command',
         prompt: prompt,
-        max_tokens: 300,
+        max_tokens: 500,
         temperature: 0.7,
         k: 0,
         stop_sequences: [],
@@ -47,7 +47,13 @@ exports.handler = async (event) => {
     const generatedText = data.generations[0].text.trim();
     console.log('Generated text:', generatedText);
 
-    const giftIdeas = parseGiftIdeas(generatedText);
+    let giftIdeas;
+    try {
+      giftIdeas = JSON.parse(generatedText);
+    } catch (error) {
+      console.error('Failed to parse gift ideas:', error);
+      giftIdeas = [{ product: 'Parsing Error', description: generatedText, price: 'N/A', retailer: 'N/A' }];
+    }
 
     return {
       statusCode: 200,
@@ -63,11 +69,3 @@ exports.handler = async (event) => {
     };
   }
 };
-
-function parseGiftIdeas(text) {
-  const lines = text.split('\n').filter(line => line.trim() !== '');
-  return lines.map(line => {
-    const [product, description, price, retailer] = line.split(' - ');
-    return { product, description, price, retailer };
-  });
-}
