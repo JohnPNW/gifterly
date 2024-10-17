@@ -17,7 +17,7 @@ exports.handler = async (event) => {
       throw new Error('Budget and age are required fields');
     }
 
-    const prompt = `Suggest 5 specific gift ideas for a ${age} year old, interested in ${interests}, for the occasion: ${occasion}. The budget is $${budget}. It's crucial that each suggestion stays within this budget. For each suggestion, provide the product name, a brief description, an estimated price (which must be less than or equal to $${budget}), and a popular retailer where it can be purchased. Format the response as a JSON array of objects, each with 'product', 'description', 'price', and 'retailer' keys.`;
+    const prompt = `Suggest 5 specific gift ideas for a ${age} year old, interested in ${interests}, for the occasion: ${occasion}. The budget is $${budget}. It's crucial that each suggestion stays within this budget. For each suggestion, provide the product name, a brief description, an estimated price (which must be less than or equal to $${budget}), and a popular retailer where it can be purchased.`;
 
     const response = await fetch('https://api.cohere.ai/v1/generate', {
       method: 'POST',
@@ -42,10 +42,7 @@ exports.handler = async (event) => {
     }
 
     const data = await response.json();
-    console.log('Raw API response:', JSON.stringify(data));
-
     const generatedText = data.generations[0].text.trim();
-    console.log('Generated text:', generatedText);
 
     const giftIdeas = parseGiftIdeas(generatedText);
 
@@ -65,33 +62,29 @@ exports.handler = async (event) => {
 };
 
 function parseGiftIdeas(text) {
-  // Remove any prefix before the JSON-like structure
-  const cleanedText = text.replace(/^.*?(\[{)/s, '[$1');
-  
-  // Try to parse the cleaned text as JSON
-  try {
-    return JSON.parse(cleanedText);
-  } catch (e) {
-    console.error('Failed to parse as JSON:', e);
-    
-    // If JSON parsing fails, use regex to extract gift ideas
-    const giftIdeas = [];
-    const regex = /"product"\s*:\s*"([^"]*)"\s*,\s*"description"\s*:\s*"([^"]*)"\s*,\s*"price"\s*:\s*"([^"]*)"\s*,\s*"retailer"\s*:\s*"([^"]*)"/g;
-    let match;
-    while ((match = regex.exec(cleanedText)) !== null) {
-      giftIdeas.push({
-        product: match[1],
-        description: match[2],
-        price: match[3],
-        retailer: match[4]
-      });
-    }
-    
-    if (giftIdeas.length > 0) {
-      return giftIdeas;
-    } else {
-      // If no gift ideas were extracted, return the original text as an error
-      return [{ product: 'Parsing Error', description: text, price: 'N/A', retailer: 'N/A' }];
+  const giftIdeas = [];
+  const lines = text.split('\n');
+  let currentIdea = {};
+
+  for (const line of lines) {
+    if (line.startsWith('Product:')) {
+      if (Object.keys(currentIdea).length > 0) {
+        giftIdeas.push(currentIdea);
+        currentIdea = {};
+      }
+      currentIdea.product = line.replace('Product:', '').trim();
+    } else if (line.startsWith('Description:')) {
+      currentIdea.description = line.replace('Description:', '').trim();
+    } else if (line.startsWith('Price:')) {
+      currentIdea.price = line.replace('Price:', '').trim();
+    } else if (line.startsWith('Retailer:')) {
+      currentIdea.retailer = line.replace('Retailer:', '').trim();
     }
   }
+
+  if (Object.keys(currentIdea).length > 0) {
+    giftIdeas.push(currentIdea);
+  }
+
+  return giftIdeas.length > 0 ? giftIdeas : [{ product: 'Parsing Error', description: text, price: 'N/A', retailer: 'N/A' }];
 }
