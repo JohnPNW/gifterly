@@ -12,23 +12,13 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { budget, occasion, age, interests } = JSON.parse(event.body || '{}');
-    if (!budget || !age) {
-      throw new Error('Budget and age are required fields');
+    const { recipientName, budget, occasion, age, interests } = JSON.parse(event.body || '{}');
+
+    if (!recipientName || !budget || !occasion || !age || !interests) {
+      throw new Error('All fields are required');
     }
 
-    const prompt = `Suggest 5 specific gift ideas for a ${age} year old, interested in ${interests}, for the occasion: ${occasion}. The MAXIMUM budget is $${budget}. It is CRITICAL that each suggestion's price is less than or equal to $${budget}. Do not exceed this budget under any circumstances.
-
-For each suggestion, provide:
-1. Product Name
-2. Brief Description (max 20 words)
-3. Estimated Price (must be less than or equal to $${budget})
-4. Popular Retailer where it can be purchased
-
-Format each gift idea exactly as follows:
-"Product Name - Description - Price - Retailer"
-
-Ensure that each suggestion is on a new line and follows this exact format. Do not include any additional text or explanations outside of this format.`;
+    const prompt = `Suggest 5 specific gift ideas from Amazon.com for ${recipientName}, a ${age} year old, interested in ${interests}, for the occasion: ${occasion}. The budget is $${budget}. For each suggestion, provide the product name, a brief description, an estimated price, and "Amazon" as the retailer. Ensure all suggestions are within budget, appropriate for the occasion and age, and relevant to the interests. Format each gift idea as: "Product Name - Description - Price - Retailer".`;
 
     const response = await fetch('https://api.cohere.ai/v1/generate', {
       method: 'POST',
@@ -40,7 +30,7 @@ Ensure that each suggestion is on a new line and follows this exact format. Do n
       body: JSON.stringify({
         model: 'command',
         prompt: prompt,
-        max_tokens: 500,  // Increased to allow for longer responses
+        max_tokens: 500,
         temperature: 0.7,
         k: 0,
         stop_sequences: [],
@@ -60,16 +50,10 @@ Ensure that each suggestion is on a new line and follows this exact format. Do n
 
     const giftIdeas = parseGiftIdeas(generatedText);
 
-    // Additional check to filter out any suggestions that exceed the budget
-    const filteredGiftIdeas = giftIdeas.filter(idea => {
-      const price = parseFloat(idea.price.replace('$', ''));
-      return !isNaN(price) && price <= parseFloat(budget);
-    });
-
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ giftIdeas: filteredGiftIdeas }),
+      body: JSON.stringify({ giftIdeas }),
     };
   } catch (error) {
     console.error('Function error:', error);
@@ -84,7 +68,7 @@ Ensure that each suggestion is on a new line and follows this exact format. Do n
 function parseGiftIdeas(text) {
   const lines = text.split('\n').filter(line => line.trim() !== '');
   return lines.map(line => {
-    const [product, description, price, retailer] = line.split(' - ').map(item => item.trim());
-    return { product, description, price, retailer };
+    const [product, description, price, retailer] = line.split(' - ');
+    return { product, description, price, retailer: retailer || 'Amazon' };
   });
 }
