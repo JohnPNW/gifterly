@@ -68,4 +68,4 @@ exports.handler = async (event) => {
       body: JSON.stringify({ error: 'Failed to generate gift ideas', details: error.message }),
     };
   }
-};
+}
