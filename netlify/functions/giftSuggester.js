@@ -47,7 +47,7 @@ exports.handler = async (event) => {
     const generatedText = data.generations[0].text.trim();
     console.log('Generated text:', generatedText);
 
-    let giftIdeas = parseGiftIdeas(generatedText);
+    const giftIdeas = parseGiftIdeas(generatedText);
 
     return {
       statusCode: 200,
@@ -65,38 +65,33 @@ exports.handler = async (event) => {
 };
 
 function parseGiftIdeas(text) {
+  // Remove any prefix before the JSON-like structure
+  const cleanedText = text.replace(/^.*?(\[{)/s, '[$1');
+  
+  // Try to parse the cleaned text as JSON
   try {
-    // First, try to parse the entire text as JSON
-    return JSON.parse(text);
+    return JSON.parse(cleanedText);
   } catch (e) {
-    console.error('Failed to parse entire text as JSON:', e);
+    console.error('Failed to parse as JSON:', e);
     
-    // If that fails, try to extract JSON from the text
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      try {
-        return JSON.parse(jsonMatch[0]);
-      } catch (e) {
-        console.error('Failed to parse extracted JSON:', e);
-      }
+    // If JSON parsing fails, use regex to extract gift ideas
+    const giftIdeas = [];
+    const regex = /"product"\s*:\s*"([^"]*)"\s*,\s*"description"\s*:\s*"([^"]*)"\s*,\s*"price"\s*:\s*"([^"]*)"\s*,\s*"retailer"\s*:\s*"([^"]*)"/g;
+    let match;
+    while ((match = regex.exec(cleanedText)) !== null) {
+      giftIdeas.push({
+        product: match[1],
+        description: match[2],
+        price: match[3],
+        retailer: match[4]
+      });
     }
     
-    // If JSON extraction fails, fall back to regex parsing
-    return parseWithRegex(text);
+    if (giftIdeas.length > 0) {
+      return giftIdeas;
+    } else {
+      // If no gift ideas were extracted, return the original text as an error
+      return [{ product: 'Parsing Error', description: text, price: 'N/A', retailer: 'N/A' }];
+    }
   }
-}
-
-function parseWithRegex(text) {
-  const giftIdeas = [];
-  const regex = /"product"\s*:\s*"([^"]*)"\s*,\s*"description"\s*:\s*"([^"]*)"\s*,\s*"price"\s*:\s*"([^"]*)"\s*,\s*"retailer"\s*:\s*"([^"]*)"/g;
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    giftIdeas.push({
-      product: match[1],
-      description: match[2],
-      price: match[3],
-      retailer: match[4]
-    });
-  }
-  return giftIdeas.length > 0 ? giftIdeas : [{ product: 'Parsing Error', description: text, price: 'N/A', retailer: 'N/A' }];
 }
